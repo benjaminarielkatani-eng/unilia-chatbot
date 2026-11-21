@@ -18,3 +18,7 @@ __pycache__/
 # Editor settings (personal preference files, not project files)
 .vscode/
 .idea/
+
+# Uploaded documents - stored on the server only, never in Git
+uploads/*
+!uploads/.gitkeep

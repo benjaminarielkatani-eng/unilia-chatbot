@@ -10,17 +10,26 @@ class DocumentBase(BaseModel):
     description: Optional[str] = None
 
 
-class DocumentCreate(DocumentBase):
-    """Fields required when uploading a new document (Sprint 3)."""
-    pass
+class DocumentUpdate(BaseModel):
+    """
+    Fields allowed when updating a document's details.
+    All fields are optional — only send the ones you want to change.
+    """
+    title: Optional[str] = None
+    category: Optional[str] = None
+    description: Optional[str] = None
 
 
-class DocumentResponse(DocumentBase):
+class DocumentResponse(BaseModel):
     """Fields returned when reading a document from the database."""
     id: int
+    title: str
     filename: str
     file_type: Optional[str] = None
+    category: Optional[str] = None
+    description: Optional[str] = None
     is_active: bool
+    uploaded_by: Optional[int] = None
     created_at: datetime
 
     class Config:
