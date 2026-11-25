@@ -2,4 +2,4 @@
 from models.user import User
 from models.document import Document
 from models.chat import ChatSession, Message
-from models.feedback import Feedback
+from models.feedback import Feedback, FeedbackReview

@@ -5,8 +5,7 @@ These define the shape of data for login requests and token responses.
 Pydantic checks that the data matches these shapes automatically.
 """
 
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, ConfigDict
 
 
 class LoginRequest(BaseModel):
@@ -38,11 +37,10 @@ class CurrentUser(BaseModel):
     Information about the currently logged-in admin.
     Returned by GET /api/auth/me
     """
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     username: str
     email: str
     role: str         # "admin" or "staff"
     is_active: bool
-
-    class Config:
-        from_attributes = True  # allows reading from SQLAlchemy model objects

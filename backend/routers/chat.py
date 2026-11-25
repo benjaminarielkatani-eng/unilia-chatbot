@@ -1,3 +1,4 @@
+import json
 import uuid
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
@@ -55,8 +56,6 @@ def ask_question(request: QuestionRequest, db: Session = Depends(get_db)):
     4. Save the AI's answer back to the database
     5. Return the answer and session token to the student
 
-    Sprint 4: Step 3 uses a placeholder (ai_service returns a fixed message).
-    Sprint 5: ai_service will be updated to call Macmillan's RAG pipeline.
     """
     # Step 1: Get existing session or create a new one
     session = get_or_create_session(request.session_token, db)
@@ -74,13 +73,14 @@ def ask_question(request: QuestionRequest, db: Session = Depends(get_db)):
     db.refresh(new_message)
 
     # Step 3: Send the question to the AI engine and get a response
-    # In Sprint 5, this call will return a real document-grounded answer
-    ai_response = ai_service.get_answer(question=request.question)
+    ai_response = ai_service.get_answer(
+        question=request.question, session_token=session.session_token, db=db
+    )
 
     # Step 4: Update the saved message with the AI's answer
     new_message.answer = ai_response["answer"]
     new_message.is_answered = ai_response["is_answered"]
-    new_message.source_documents = str(ai_response["source_documents"])
+    new_message.source_documents = json.dumps(ai_response["source_documents"])
     db.commit()
     db.refresh(new_message)
 

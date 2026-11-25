@@ -2,9 +2,9 @@
 
 ## Overview
 
-This document describes how the UNILIA backend communicates with Macmillan's
-AI/RAG engine. It serves as the **API contract** — an agreement on exactly what
-format the backend sends questions and what format the AI engine must reply with.
+The backend uses the built-in document engine when `AI_ENGINE_URL` is blank.
+The built-in engine searches active uploads and provides cited passages. This
+document defines the HTTP contract for configuring a separate AI engine.
 
 ---
 
@@ -92,16 +92,12 @@ When Macmillan's AI engine is deployed, Benjamin only needs to do **one thing**:
 
 ---
 
-## Error Handling (Already Built in the Backend)
+## Local Fallback
 
-The backend already handles these cases gracefully so the system never crashes:
-
-| Scenario | What the student sees |
-|---|---|
-| AI engine is offline | "The AI engine is currently unavailable. Please try again." |
-| AI engine takes too long (>30 seconds) | "The AI engine took too long to respond." |
-| AI engine returns an error code | "The AI engine returned an unexpected response." |
-| AI engine works correctly ✅ | The real answer is shown to the student |
+The backend searches local uploads if the external engine is unreachable, times
+out, or returns an invalid response. Students receive a cited passage when a
+local document matches their question or a message explaining that the search
+found no answer.
 
 ---
 

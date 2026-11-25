@@ -11,19 +11,23 @@ routers to protect admin-only endpoints (e.g. document upload/delete).
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from database.database import get_db
 from models.user import User
 from schemas.auth import LoginRequest, TokenResponse, CurrentUser
-from services.auth_service import verify_password, create_access_token, decode_access_token
+from services.auth_service import (
+    create_access_token,
+    decode_access_token,
+    password_version,
+    verify_password,
+)
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
-# This tells FastAPI where the login endpoint is so it can read tokens
-# from the "Authorization: Bearer <token>" header on protected requests
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+# The login endpoint accepts JSON. Protected endpoints accept its bearer token.
+bearer_scheme = HTTPBearer(bearerFormat="JWT")
 
 
 # ---------------------------------------------------------------------------
@@ -35,7 +39,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 # ---------------------------------------------------------------------------
 
 def get_current_admin(
-    token: str = Depends(oauth2_scheme),
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     db: Session = Depends(get_db)
 ) -> User:
     """
@@ -56,7 +60,7 @@ def get_current_admin(
     )
 
     # Decode and verify the token
-    payload = decode_access_token(token)
+    payload = decode_access_token(credentials.credentials)
     if payload is None:
         raise credentials_error
 
@@ -67,7 +71,7 @@ def get_current_admin(
 
     # Look up the user in the database
     user = db.query(User).filter(User.username == username).first()
-    if user is None:
+    if user is None or payload.get("password_version") != password_version(user.hashed_password):
         raise credentials_error
 
     # Check the account is not disabled
@@ -75,6 +79,12 @@ def get_current_admin(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Your account has been disabled. Contact the administrator."
+        )
+
+    if user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrator access is required."
         )
 
     return user
@@ -121,7 +131,11 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
 
     # Step 4: Create and return a JWT token
     # "sub" (subject) is the standard JWT field for the user identifier
-    token = create_access_token(data={"sub": user.username, "role": user.role})
+    token = create_access_token(data={
+        "sub": user.username,
+        "role": user.role,
+        "password_version": password_version(user.hashed_password),
+    })
 
     return TokenResponse(access_token=token, token_type="bearer")
 
