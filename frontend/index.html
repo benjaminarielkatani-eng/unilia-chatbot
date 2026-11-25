@@ -1,0 +1,272 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>UNILIA AI Student Assistant</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- Navigation bar -->
+    <header class="navbar">
+
+        <!-- University branding -->
+        <div class="brand">
+
+            <img
+                class="logo"
+                src="images/unilia-logo.png"
+                alt="University of Livingstonia logo"
+            >
+
+            <div class="brand-text">
+                <h2>UNILIA</h2>
+                <p>AI Student Assistant</p>
+            </div>
+
+        </div>
+
+        <!-- Student actions -->
+        <div class="nav-actions">
+
+            <button class="notification-btn"
+                    aria-label="Notifications">
+                <span class="notification-dot"></span>
+                🔔
+            </button>
+
+            <button class="profile-btn" type="button" aria-label="Open profile">
+                <span class="profile-avatar">
+                    <i data-lucide="user-round" aria-hidden="true"></i>
+                </span>
+                <span>Profile</span>
+                <i data-lucide="chevron-down" aria-hidden="true"></i>
+            </button>
+        </div>
+
+    </header>
+
+
+    <!-- Main welcome section -->
+    <main>
+
+        <div class="home-columns">
+
+            <!-- Welcome section -->
+            <section class="hero" id="home">
+
+                <div class="hero-content">
+
+                    <img
+                        class="ai-scholar-icon"
+                        src="images/AI scholar transparent.png"
+                        alt="AI scholar cap with artificial intelligence circuitry"
+                    >
+
+                    <h1>
+                        Welcome to Your UNILIA AI Student Assistant
+                    </h1>
+
+                    <p class="welcome-greeting">
+                        Hello! I'm your AI academic companion, here to support your learning, research, and university journey.
+                    </p>
+
+                    <div class="hero-actions">
+
+                        <a href="chat.html" class="ask-ai-button">
+                            Ask UNILIA AI
+                        </a>
+
+                        <a href="#topics" class="secondary-btn">
+                            Explore Programmes
+                        </a>
+
+                        <a href="#about" class="outline-btn">
+                            Learn More
+                        </a>
+
+                    </div>
+                </div>
+
+            </section>
+
+        </div>
+
+
+        <!-- Suggested questions / Explore Topics -->
+        <section class="questions-section" id="topics">
+
+            <div class="section-heading">
+
+                <h2>What would you like to know?</h2>
+
+                <p>Choose a topic to start a conversation with UNILIA AI.</p>
+
+            </div>
+
+
+            <div class="question-grid">
+
+                <button class="question-card"
+                    data-question="What programmes are offered at UNILIA?">
+
+                    <div class="card-icon">🎓</div>
+
+                    <h3>Academic Programmes</h3>
+
+                    <p>
+                        Learn about available courses and programmes.
+                    </p>
+
+                    
+                </button>
+
+
+                <button class="question-card"
+                    data-question="What are the admission requirements?">
+
+                    <div class="card-icon">📋</div>
+
+                    <h3>Admissions</h3>
+
+                    <p>
+                        Find information about admission requirements.
+                    </p>
+
+                    
+                </button>
+
+
+                <button class="question-card"
+                    data-question="Where can I find information about university fees?">
+
+                    <div class="card-icon">💳</div>
+
+                    <h3>Fees and Payments</h3>
+
+                    <p>
+                        Find guidance about university fees and payments.
+                    </p>
+
+                   
+                </button>
+
+
+                <button class="question-card"
+                    data-question="Where can I find the academic calendar?">
+
+                    <div class="card-icon">📅</div>
+
+                    <h3>Academic Calendar</h3>
+
+                    <p>
+                        Ask about important academic dates and activities.
+                    </p>
+
+                    
+
+                </button>
+
+            </div>
+
+        </section>
+
+
+        <!-- Recent Questions -->
+        <section class="recent-questions-section" id="recent-questions" hidden>
+
+            <div class="section-heading">
+
+                <h2>Recent Questions</h2>
+
+                <p>
+                    View questions you have recently asked UNILIA AI.
+                </p>
+
+            </div>
+
+
+            <div class="recent-question-list">
+
+                <div class="recent-question">
+
+                    <span class="recent-icon">💬</span>
+
+                    <p>
+                        How do I apply for admission at UNILIA?
+                    </p>
+
+                </div>
+
+
+                <div class="recent-question">
+
+                    <span class="recent-icon">💬</span>
+
+                    <p>
+                        What programmes are offered at the university?
+                    </p>
+
+                </div>
+
+
+                <div class="recent-question">
+
+                    <span class="recent-icon">💬</span>
+
+                    <p>
+                        How can I access my examination results?
+                    </p>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- About section -->
+        <section class="about-section" id="about">
+
+            <h2>About UNILIA AI Assistant</h2>
+
+            <p>
+                The UNILIA AI Student Assistant is designed to help
+                students access university information through a
+                simple question-and-answer interface.
+            </p>
+
+        </section>
+
+
+    </main>
+
+
+    <!-- Footer -->
+    <footer>
+
+        <p>
+            © 2026 University of Livingstonia (UNILIA).
+            AI Student Assistant.
+        </p>
+
+        <p>Courage, Excellence and Confidence.</p>
+        <p><a class="admin-dashboard-link" href="admin.html">Administrator dashboard</a></p>
+
+    </footer>
+
+
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+    <script src="script.js"></script>
+
+</body>
+</html>
