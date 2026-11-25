@@ -5,7 +5,7 @@ from database.database import engine, Base
 import models
 
 # Import the API routers
-from routers import health, documents, chat
+from routers import health, documents, chat, auth
 
 # Create all database tables if they do not already exist
 # This runs automatically every time the server starts
@@ -20,6 +20,7 @@ app = FastAPI(
 
 # Register all routers — each handles a different area of the API
 app.include_router(health.router, prefix="/api")       # /api/health
+app.include_router(auth.router)                        # /api/auth/login, /api/auth/me
 app.include_router(documents.router, prefix="/api")    # /api/documents
 app.include_router(chat.router, prefix="/api")         # /api/chat
 

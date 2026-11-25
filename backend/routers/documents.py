@@ -7,7 +7,9 @@ from sqlalchemy.orm import Session
 
 from database.database import get_db
 from models.document import Document
+from models.user import User
 from schemas.document import DocumentResponse, DocumentUpdate
+from routers.auth import get_current_admin   # Sprint 6: security guard for admin endpoints
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
@@ -57,12 +59,13 @@ def upload_document(
     category: str = Form(None),                    # e.g. "academic", "administrative"
     description: str = Form(None),                 # optional short description
     file: UploadFile = File(...),                  # the actual file being uploaded
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin)  # Sprint 6: must be logged-in admin
 ):
     """
     Upload a new university document and save its metadata to the database.
     Accepted file types: PDF, DOCX, DOC, TXT.
-    The uploaded_by field is set to 1 (placeholder until admin login is built in Sprint 6).
+    Requires admin login (JWT token in Authorization header).
     """
     # Check the file extension is allowed
     file_extension = os.path.splitext(file.filename)[1].lower()
@@ -74,7 +77,6 @@ def upload_document(
         )
 
     # Create a unique filename so two files with the same name don't overwrite each other
-    # Example: "handbook.pdf" becomes "a3f1c2d4-...-handbook.pdf"
     unique_filename = f"{uuid.uuid4()}_{file.filename}"
     file_path = os.path.join(UPLOAD_DIR, unique_filename)
 
@@ -90,7 +92,7 @@ def upload_document(
         file_type=file_extension.lstrip("."),  # e.g. "pdf" (without the dot)
         category=category,
         description=description,
-        uploaded_by=1,                   # placeholder — replaced with real user in Sprint 6
+        uploaded_by=current_user.id,     # Sprint 6: real logged-in admin ID
         is_active=True
     )
 
@@ -109,11 +111,13 @@ def upload_document(
 def update_document(
     document_id: int,
     update_data: DocumentUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin)  # Sprint 6: must be logged-in admin
 ):
     """
     Update a document's title, category or description.
     Only the fields you send will be changed — others stay the same.
+    Requires admin login (JWT token in Authorization header).
     """
     document = db.query(Document).filter(
         Document.id == document_id,
@@ -139,11 +143,16 @@ def update_document(
 # Soft-delete: marks document as inactive (does NOT permanently erase it)
 # ─────────────────────────────────────────────
 @router.delete("/{document_id}")
-def delete_document(document_id: int, db: Session = Depends(get_db)):
+def delete_document(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin)  # Sprint 6: must be logged-in admin
+):
     """
     Soft-delete a document by setting is_active to False.
     The document record and file remain on disk — it just disappears
     from the knowledge base. This allows recovery if deleted by mistake.
+    Requires admin login (JWT token in Authorization header).
     """
     document = db.query(Document).filter(
         Document.id == document_id,
