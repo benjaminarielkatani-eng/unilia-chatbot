@@ -106,3 +106,69 @@ window.addEventListener("pageshow", function() {
     if (!recentQuestionsSection.hidden) loadRecentQuestions();
 });
 revealRecentQuestionsFromHash();
+
+// ── Profile dropdown ─────────────────────────────────────────────────────────
+(function initProfileDropdown() {
+    var btn = document.getElementById("profileMenuBtn");
+    var dropdown = document.getElementById("profileDropdown");
+    var signedIn = document.getElementById("profileDropdownSignedIn");
+    var signedOut = document.getElementById("profileDropdownSignedOut");
+    var logoutBtn = document.getElementById("profileLogoutBtn");
+    var labelEl = document.getElementById("profileBtnLabel");
+    if (!btn || !dropdown) return;
+
+    function getAdminToken() {
+        try { return sessionStorage.getItem("uniliaAdminAccessToken") || ""; } catch(e) { return ""; }
+    }
+
+    function updateDropdownState() {
+        var token = getAdminToken();
+        if (token) {
+            if (signedIn) signedIn.hidden = false;
+            if (signedOut) signedOut.hidden = true;
+            if (labelEl) labelEl.textContent = "Admin";
+        } else {
+            if (signedIn) signedIn.hidden = true;
+            if (signedOut) signedOut.hidden = false;
+            if (labelEl) labelEl.textContent = "Profile";
+        }
+    }
+
+    function openDropdown() {
+        updateDropdownState();
+        dropdown.hidden = false;
+        btn.setAttribute("aria-expanded", "true");
+    }
+
+    function closeDropdown() {
+        dropdown.hidden = true;
+        btn.setAttribute("aria-expanded", "false");
+    }
+
+    btn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        if (dropdown.hidden) { openDropdown(); } else { closeDropdown(); }
+    });
+
+    document.addEventListener("click", function(e) {
+        if (!dropdown.hidden && !dropdown.contains(e.target) && e.target !== btn) {
+            closeDropdown();
+        }
+    });
+
+    document.addEventListener("keydown", function(e) {
+        if (e.key === "Escape" && !dropdown.hidden) closeDropdown();
+    });
+
+    if (logoutBtn) {
+        logoutBtn.addEventListener("click", function() {
+            try { sessionStorage.removeItem("uniliaAdminAccessToken"); } catch(e) {}
+            closeDropdown();
+            updateDropdownState();
+        });
+    }
+
+    // Refresh on pageshow (bfcache)
+    window.addEventListener("pageshow", updateDropdownState);
+    updateDropdownState();
+})();

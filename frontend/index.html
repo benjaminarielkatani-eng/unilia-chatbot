@@ -41,13 +41,41 @@
                 🔔
             </button>
 
-            <button class="profile-btn" type="button" aria-label="Open profile">
-                <span class="profile-avatar">
-                    <i data-lucide="user-round" aria-hidden="true"></i>
-                </span>
-                <span>Profile</span>
-                <i data-lucide="chevron-down" aria-hidden="true"></i>
-            </button>
+            <!-- Profile dropdown wrapper -->
+            <div class="profile-menu-wrap" id="profileMenuWrap">
+                <button class="profile-btn" type="button" id="profileMenuBtn" aria-label="Open profile menu" aria-expanded="false" aria-haspopup="true">
+                    <span class="profile-avatar">
+                        <i data-lucide="user-round" aria-hidden="true"></i>
+                    </span>
+                    <span id="profileBtnLabel">Profile</span>
+                    <i data-lucide="chevron-down" aria-hidden="true"></i>
+                </button>
+
+                <div class="profile-dropdown" id="profileDropdown" hidden role="menu">
+                    <!-- Signed-in items (shown when admin token exists) -->
+                    <div id="profileDropdownSignedIn" hidden>
+                        <a class="profile-dropdown-item" href="index.html#profile" role="menuitem">
+                            <span>👤</span> Profile
+                        </a>
+                        <a class="profile-dropdown-item profile-dropdown-admin" id="adminDashboardLink" href="admin.html" role="menuitem">
+                            <span>⚙️</span> Administrator Dashboard
+                        </a>
+                        <button class="profile-dropdown-item profile-dropdown-logout" type="button" id="profileLogoutBtn" role="menuitem">
+                            <span>🚪</span> Sign out
+                        </button>
+                    </div>
+                    <!-- Signed-out items -->
+                    <div id="profileDropdownSignedOut">
+                        <a class="profile-dropdown-item" href="chat.html" role="menuitem">
+                            <span>💬</span> Start chatting
+                        </a>
+                        <a class="profile-dropdown-item profile-dropdown-admin" href="admin.html" role="menuitem">
+                            <span>⚙️</span> Administrator Login
+                        </a>
+                    </div>
+                </div>
+            </div>
+
         </div>
 
     </header>

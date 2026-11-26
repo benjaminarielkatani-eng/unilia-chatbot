@@ -1380,6 +1380,62 @@ body:has(#about:target) .nav-link[href="#about"] {
     height: 16px;
 }
 
+/* Profile dropdown menu */
+.profile-menu-wrap {
+    position: relative;
+    display: inline-flex;
+}
+
+.profile-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 220px;
+    background: #ffffff;
+    border: 1px solid rgba(18, 59, 115, 0.12);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(13, 49, 91, 0.18);
+    z-index: 999;
+    overflow: hidden;
+    padding: 6px 0;
+}
+
+.profile-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 11px 18px;
+    color: var(--text-dark);
+    text-decoration: none;
+    font-size: 0.95rem;
+    font-weight: 500;
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    font-family: inherit;
+    transition: background 0.15s;
+    box-sizing: border-box;
+}
+
+.profile-dropdown-item:hover,
+.profile-dropdown-item:focus {
+    background: var(--unilia-light);
+    outline: none;
+}
+
+.profile-dropdown-admin {
+    color: var(--unilia-dark);
+    font-weight: 600;
+}
+
+.profile-dropdown-logout {
+    color: #c0392b;
+    border-top: 1px solid rgba(18, 59, 115, 0.08);
+    margin-top: 4px;
+}
+
 /* Mobile responsiveness */
 @media (max-width: 768px) {
 
