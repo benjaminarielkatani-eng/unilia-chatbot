@@ -1,9 +1,11 @@
 "use strict";
 
-const conversationsKey = "uniliaConversations";
 const activeChatKey = "uniliaActiveChatId";
 const sidebarStateKey = "uniliaChatSidebarCollapsed";
-const demoResponse = "Thank you for your question. I am the UNILIA AI Student Assistant. This is a demonstration response. The university knowledge base and AI backend have not yet been connected.";
+const pendingQuestionKey = "uniliaPendingQuestion";
+const pendingQuestion = chatStorage.read("sessionStorage", pendingQuestionKey);
+const pendingResponses = new Map();
+const pendingFeedback = new Set();
 
 const chatLayout = document.getElementById("chatLayout");
 const chatMessages = document.getElementById("chatMessages");
@@ -21,10 +23,7 @@ const chatToastRegion = document.getElementById("chatToastRegion");
 const recentQuestionsButton = document.getElementById("recentQuestionsButton");
 const mobileSidebarButton = document.getElementById("mobileSidebarButton");
 let activeConversationId = null;
-let loadingMessage = null;
-let responseTimer = null;
 let toastTimer = null;
-let isGenerating = false;
 let isListening = false;
 
 function showToast(message) {
@@ -39,26 +38,14 @@ function showToast(message) {
     }, 4200);
 }
 
-function readConversations() {
-    try {
-        const parsed = JSON.parse(localStorage.getItem(conversationsKey) || "[]");
-        if (Array.isArray(parsed)) return parsed;
-        console.warn("[chat history] Stored conversations were not an array.");
-    } catch (error) {
-        console.warn("[chat history] Could not read stored conversations:", error);
-    }
-    return [];
-}
+const { readConversations } = chatStorage;
 
 function writeConversations(conversations) {
-    try {
-        localStorage.setItem(conversationsKey, JSON.stringify(conversations));
-        return true;
-    } catch (error) {
-        console.error("[chat history] Could not save conversations:", error);
-        showToast("Conversation changes could not be saved in this browser. Check available storage.");
-        return false;
+    const persisted = chatStorage.writeConversations(conversations);
+    if (!persisted) {
+        showToast("Conversation changes are available on this page until you close or reload it.");
     }
+    return persisted;
 }
 
 function getTime() {
@@ -75,51 +62,31 @@ function createConversation() {
     };
 }
 
-function migrateLegacyHistory(conversations) {
-    let legacyHistory;
-    try {
-        legacyHistory = JSON.parse(sessionStorage.getItem("chatHistory") || "[]");
-    } catch (error) {
-        console.warn("[chat history] Could not read legacy session history:", error);
-        return conversations;
-    }
-    if (!Array.isArray(legacyHistory) || legacyHistory.length === 0) return conversations;
-
-    const firstQuestion = legacyHistory.find(function(item) { return item.role === "student"; });
-    conversations.push({
-        id: "chat-legacy-" + Date.now(),
-        title: firstQuestion ? firstQuestion.message : "UNILIA conversation",
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        messages: legacyHistory.map(function(item) {
-            return {
-                role: item.role,
-                message: String(item.message || ""),
-                time: item.time || getTime(),
-                timestamp: Date.now()
-            };
-        })
-    });
-    sessionStorage.removeItem("chatHistory");
-    writeConversations(conversations);
-    return conversations;
-}
-
-function setConversationUrl(chatId) {
+function selectConversation(chatId) {
+    activeConversationId = chatId;
+    chatStorage.write("localStorage", activeChatKey, chatId);
     const url = new URL(window.location.href);
     url.searchParams.set("chatId", chatId);
-    window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+    try {
+        window.history.replaceState(null, "", url.href);
+    } catch (error) {
+        console.warn("Could not update the conversation link:", error);
+    }
 }
 
 function ensureActiveConversation() {
-    let conversations = migrateLegacyHistory(readConversations());
+    const conversations = readConversations();
+    chatStorage.migrateLegacyHistory(conversations);
     const requestedId = new URLSearchParams(window.location.search).get("chatId");
-    const storedId = localStorage.getItem(activeChatKey);
+    const storedId = chatStorage.read("localStorage", activeChatKey);
     let activeConversation = conversations.find(function(chat) {
-        return chat.id === requestedId;
+        return chat.id === activeConversationId;
     }) || conversations.find(function(chat) {
-        return chat.id === storedId;
+        return chat.id === requestedId;
     });
+    if (!activeConversation && !(pendingQuestion && requestedId)) {
+        activeConversation = conversations.find(function(chat) { return chat.id === storedId; });
+    }
 
     if (!activeConversation) {
         activeConversation = createConversation();
@@ -127,62 +94,18 @@ function ensureActiveConversation() {
         writeConversations(conversations);
     }
 
-    activeConversationId = activeConversation.id;
-    localStorage.setItem(activeChatKey, activeConversationId);
-    setConversationUrl(activeConversationId);
+    selectConversation(activeConversation.id);
     return activeConversation;
 }
 
-function getActiveConversation() {
-    return readConversations().find(function(chat) {
-        return chat.id === activeConversationId;
-    });
-}
-
-function saveMessage(role, message) {
-    const conversations = readConversations();
-    let conversation = conversations.find(function(chat) {
-        return chat.id === activeConversationId;
-    });
-
-    if (!conversation) {
-        conversation = createConversation();
-        conversations.unshift(conversation);
-        activeConversationId = conversation.id;
-        localStorage.setItem(activeChatKey, conversation.id);
-        setConversationUrl(conversation.id);
-    }
-
-    const record = {
+function createMessage(role, message) {
+    return {
         id: "message-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7),
         role: role,
         message: message,
         time: getTime(),
         timestamp: Date.now()
     };
-    conversation.messages = Array.isArray(conversation.messages) ? conversation.messages : [];
-    conversation.messages.push(record);
-    if (role === "student" && (conversation.title === "New chat" || conversation.title === "New UNILIA conversation")) {
-        conversation.title = message.length > 54 ? message.slice(0, 54).trimEnd() + "…" : message;
-    }
-    conversation.updatedAt = record.timestamp;
-    conversations.sort(function(a, b) { return (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0); });
-    writeConversations(conversations);
-    renderConversationList();
-    return { record: record, index: conversation.messages.length - 1 };
-}
-
-function updateMessage(conversationId, messageIndex, update) {
-    const conversations = readConversations();
-    const conversation = conversations.find(function(chat) { return chat.id === conversationId; });
-    if (!conversation || !conversation.messages || !conversation.messages[messageIndex]) {
-        showToast("That response is no longer available in conversation history.");
-        return false;
-    }
-    update(conversation.messages[messageIndex]);
-    conversation.updatedAt = Date.now();
-    conversations.sort(function(a, b) { return (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0); });
-    return writeConversations(conversations);
 }
 
 function appendInlineFormatting(container, text) {
@@ -302,7 +225,8 @@ function appendFormattedResponse(container, content) {
             continue;
         }
 
-        const paragraphLines = [];
+        const paragraphLines = [line];
+        index += 1;
         while (index < lines.length && lines[index].trim() &&
             !/^\s{0,3}#{1,6}\s+/.test(lines[index]) &&
             !/^\s*```/.test(lines[index]) &&
@@ -321,12 +245,6 @@ function appendFormattedResponse(container, content) {
 
 function shouldStickToBottom() {
     return chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight < 120;
-}
-
-function scrollToLatest(force) {
-    if (force || shouldStickToBottom()) {
-        chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: "smooth" });
-    }
 }
 
 function createStudentMessage(text, time) {
@@ -363,6 +281,24 @@ function createAIIcon() {
     return icon;
 }
 
+function readSources(value) {
+    let sources;
+    try {
+        sources = typeof value === "string" ? JSON.parse(value) : value;
+    } catch (error) {
+        return [];
+    }
+    if (!Array.isArray(sources)) return [];
+    return sources.map(function(source) {
+        if (typeof source === "string") return source.trim();
+        if (typeof source?.title !== "string" || !source.title.trim()) return "";
+        const hasPage = typeof source.page === "number" || typeof source.page === "string";
+        return hasPage && String(source.page).trim()
+            ? source.title.trim() + " · Page " + source.page
+            : source.title.trim();
+    }).filter(Boolean);
+}
+
 function createAIMessage(text, options) {
     const message = document.createElement("article");
     message.className = "ai-message";
@@ -380,32 +316,46 @@ function createAIMessage(text, options) {
     timestamp.className = "message-time";
     timestamp.textContent = options.time || getTime();
 
-    const sourceBox = document.createElement("div");
-    sourceBox.className = "source-reference";
-    const sourceHeading = document.createElement("h5");
-    sourceHeading.textContent = "Source References";
-    const sourceText = document.createElement("p");
-    sourceText.textContent = "No university document is currently connected. Actual references will appear when the knowledge base is integrated.";
-    sourceBox.append(sourceHeading, sourceText);
+    message.append(heading, response, timestamp);
+    if (Array.isArray(options.sources) && options.sources.length) {
+        const sourceBox = document.createElement("div");
+        sourceBox.className = "source-reference";
+        const sourceHeading = document.createElement("h5");
+        sourceHeading.textContent = "Sources";
+        sourceBox.appendChild(sourceHeading);
+        for (const source of options.sources) {
+            const sourceText = document.createElement("p");
+            sourceText.textContent = source;
+            sourceBox.appendChild(sourceText);
+        }
+        message.appendChild(sourceBox);
+    }
 
     const actions = document.createElement("div");
     actions.className = "response-actions";
     const copyButton = actionButton("Copy response", "Copy", "copy", options.conversationId, options.messageIndex);
-    const helpfulButton = actionButton("Mark response helpful", "Helpful", "helpful", options.conversationId, options.messageIndex);
-    const notHelpfulButton = actionButton("Mark response not helpful", "Not helpful", "not-helpful", options.conversationId, options.messageIndex);
     const regenerateButton = actionButton("Regenerate response", "Regenerate", "regenerate", options.conversationId, options.messageIndex);
-    actions.append(copyButton, helpfulButton, notHelpfulButton, regenerateButton);
+    regenerateButton.disabled = pendingResponses.has(options.conversationId) || options.sendingFeedback;
+    actions.appendChild(copyButton);
+    if (options.canRate) {
+        const helpfulButton = actionButton("Mark response helpful", "Helpful", "helpful", options.conversationId, options.messageIndex);
+        const notHelpfulButton = actionButton("Mark response not helpful", "Not helpful", "not-helpful", options.conversationId, options.messageIndex);
+        const disabled = options.feedbackSubmitted || options.sendingFeedback || options.regenerating;
+        helpfulButton.disabled = disabled;
+        notHelpfulButton.disabled = disabled;
+        actions.append(helpfulButton, notHelpfulButton);
+    }
+    actions.appendChild(regenerateButton);
 
     const feedbackMessage = document.createElement("small");
     feedbackMessage.className = "feedback-message";
     if (options.feedback) {
         response.classList.add(options.feedback === "helpful" ? "feedback-helpful" : "feedback-not-helpful");
-        feedbackMessage.textContent = "Feedback saved in this browser.";
-        helpfulButton.disabled = true;
-        notHelpfulButton.disabled = true;
+        feedbackMessage.textContent = options.feedbackSubmitted ? "Feedback sent. Thank you." : "Previous rating saved in this browser.";
     }
+    if (options.sendingFeedback) feedbackMessage.textContent = "Sending feedback…";
 
-    message.append(heading, response, timestamp, sourceBox, actions, feedbackMessage);
+    message.append(actions, feedbackMessage);
     return message;
 }
 
@@ -418,7 +368,7 @@ function createLoadingMessage() {
     heading.appendChild(createAIIcon());
     const text = document.createElement("p");
     text.className = "visually-hidden";
-    text.textContent = "Preparing a demonstration response";
+    text.textContent = "Waiting for a response from UNILIA";
     const dots = document.createElement("span");
     dots.className = "thinking-dots";
     dots.setAttribute("aria-hidden", "true");
@@ -427,39 +377,8 @@ function createLoadingMessage() {
     return message;
 }
 
-function showStudentMessage(question) {
-    const saved = saveMessage("student", question);
-    const conversation = getActiveConversation();
-    const record = conversation && conversation.messages[saved.index];
-    chatMessages.appendChild(createStudentMessage(question, record && record.time));
-    scrollToLatest(true);
-}
-
-function showAIResponse(question) {
-    const shouldScroll = shouldStickToBottom();
-    const saved = saveMessage("ai", demoResponse);
-    const conversation = getActiveConversation();
-    const record = conversation && conversation.messages[saved.index];
-    chatMessages.appendChild(createAIMessage(demoResponse, {
-        conversationId: activeConversationId,
-        messageIndex: saved.index,
-        time: record && record.time,
-        question: question
-    }));
-    scrollToLatest(shouldScroll);
-}
-
-function clearPendingResponse() {
-    window.clearTimeout(responseTimer);
-    responseTimer = null;
-    if (loadingMessage) loadingMessage.remove();
-    loadingMessage = null;
-    isGenerating = false;
-    updateComposerState();
-}
-
 function updateComposerState() {
-    sendButton.disabled = isGenerating || questionInput.value.trim().length === 0;
+    sendButton.disabled = pendingResponses.has(activeConversationId) || questionInput.value.trim().length === 0;
 }
 
 function resizeComposer() {
@@ -473,32 +392,46 @@ function resetComposer() {
     updateComposerState();
 }
 
-function renderChatHistory() {
-    clearPendingResponse();
+function renderConversationMessages(conversation) {
     chatMessages.replaceChildren();
-    const conversation = ensureActiveConversation();
-    const messages = Array.isArray(conversation.messages) ? conversation.messages : [];
+    const messages = conversation.messages;
+    const pending = pendingResponses.get(conversation.id);
     messages.forEach(function(item, index) {
         if (item.role === "student") {
             chatMessages.appendChild(createStudentMessage(String(item.message || ""), item.time));
             return;
         }
         if (item.role !== "ai") return;
-        let previousQuestion = "";
-        for (let previous = index - 1; previous >= 0; previous -= 1) {
-            if (messages[previous].role === "student") {
-                previousQuestion = messages[previous].message || "";
-                break;
-            }
-        }
         chatMessages.appendChild(createAIMessage(String(item.message || ""), {
             conversationId: conversation.id,
             messageIndex: index,
             time: item.time,
-            question: previousQuestion,
-            feedback: item.feedback
+            sources: item.sources,
+            feedback: item.feedback,
+            feedbackSubmitted: item.feedbackSubmitted === true,
+            canRate: Boolean(conversation.sessionToken),
+            sendingFeedback: pendingFeedback.has(feedbackKey(conversation.id, index)),
+            regenerating: pending?.messageIndex === index
         }));
+        if (pending?.messageIndex === index) chatMessages.appendChild(createLoadingMessage());
     });
+    if (pending && pending.messageIndex === null) {
+        chatMessages.appendChild(createStudentMessage(pending.question, pending.time));
+        chatMessages.appendChild(createLoadingMessage());
+    }
+}
+
+function refreshConversation(conversation, scrollToBottom = false) {
+    if (conversation.id !== activeConversationId) return;
+    const previousScroll = chatMessages.scrollTop;
+    const stickToBottom = scrollToBottom || shouldStickToBottom();
+    renderConversationMessages(conversation);
+    chatMessages.scrollTop = stickToBottom ? chatMessages.scrollHeight : previousScroll;
+    updateComposerState();
+}
+
+function renderChatHistory() {
+    renderConversationMessages(ensureActiveConversation());
     chatMessages.scrollTop = chatMessages.scrollHeight;
     renderConversationList();
     resetComposer();
@@ -576,24 +509,18 @@ function openConversation(conversationId) {
         renderConversationList();
         return;
     }
-    clearPendingResponse();
-    activeConversationId = conversationId;
-    localStorage.setItem(activeChatKey, conversationId);
-    setConversationUrl(conversationId);
+    selectConversation(conversationId);
     renderChatHistory();
     closeMobileSidebar();
     questionInput.focus();
 }
 
 function startNewChat() {
-    clearPendingResponse();
     const conversations = readConversations();
     const conversation = createConversation();
     conversations.unshift(conversation);
-    activeConversationId = conversation.id;
-    localStorage.setItem(activeChatKey, conversation.id);
     writeConversations(conversations);
-    setConversationUrl(conversation.id);
+    selectConversation(conversation.id);
     chatMessages.replaceChildren();
     conversationSearch.value = "";
     renderConversationList();
@@ -613,10 +540,9 @@ function saveConversationTitle(conversationId, title) {
     }
     conversation.title = trimmedTitle.slice(0, 80);
     conversation.updatedAt = Date.now();
-    if (writeConversations(conversations)) {
-        renderConversationList();
-        showToast("Conversation renamed.");
-    }
+    const persisted = writeConversations(conversations);
+    renderConversationList();
+    if (persisted) showToast("Conversation renamed.");
 }
 
 function beginRenameConversation(conversationId) {
@@ -659,47 +585,96 @@ function deleteConversation(conversationId) {
     if (deletingActiveConversation) {
         const next = remaining[0] || createConversation();
         if (remaining.length === 0) remaining.push(next);
-        activeConversationId = next.id;
-        localStorage.setItem(activeChatKey, activeConversationId);
-        setConversationUrl(activeConversationId);
+        selectConversation(next.id);
     }
-    if (!writeConversations(remaining)) return;
+    const persisted = writeConversations(remaining);
     if (deletingActiveConversation || !remaining.some(function(chat) { return chat.id === activeConversationId; })) {
         renderChatHistory();
     } else {
         renderConversationList();
     }
-    showToast("Conversation deleted from this browser.");
+    if (persisted) showToast("Conversation deleted from this browser.");
+}
+
+async function requestAnswer(conversation, question, messageIndex = null) {
+    const conversationId = conversation.id;
+    if (pendingResponses.has(conversationId)) return;
+
+    const student = messageIndex === null ? createMessage("student", question) : null;
+    pendingResponses.set(conversationId, { question, messageIndex, time: student?.time });
+    refreshConversation(conversation, student !== null);
+
+    let result;
+    try {
+        const response = await fetch("/api/chat/ask", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ question, session_token: conversation.sessionToken || null })
+        });
+        if (!response.ok) throw new Error("The chat server returned HTTP " + response.status);
+
+        const payload = await response.json();
+        if (typeof payload?.session_token !== "string" || !payload.session_token ||
+            typeof payload.message?.answer !== "string" || !payload.message.answer.trim()) {
+            throw new Error("The chat server returned an incomplete response.");
+        }
+        result = payload;
+    } catch (error) {
+        console.error("Could not get a chat response:", error);
+    } finally {
+        pendingResponses.delete(conversationId);
+    }
+
+    const conversations = readConversations();
+    const current = conversations.find(function(chat) { return chat.id === conversationId; });
+    if (!current) return;
+
+    if (!result) {
+        if (current.id === activeConversationId) {
+            if (student && !questionInput.value.trim()) {
+                questionInput.value = question;
+                resizeComposer();
+            }
+            refreshConversation(current);
+            showToast("Could not get a response from UNILIA. Please try again.");
+        }
+        return;
+    }
+
+    const answer = createMessage("ai", result.message.answer);
+    answer.serverMessageId = result.message.id;
+    answer.sources = readSources(result.message.source_documents);
+    if (student) {
+        current.messages.push(student, answer);
+        if (current.title === "New chat" || current.title === "New UNILIA conversation") {
+            current.title = question.length > 54 ? question.slice(0, 54).trimEnd() + "…" : question;
+        }
+    } else if (current.messages[messageIndex]?.role === "ai") {
+        answer.id = current.messages[messageIndex].id || answer.id;
+        current.messages[messageIndex] = answer;
+    }
+    current.sessionToken = result.session_token;
+    current.updatedAt = answer.timestamp;
+    writeConversations(conversations);
+    renderConversationList();
+    refreshConversation(current);
 }
 
 function submitQuestion() {
-    if (isGenerating) return;
+    if (pendingResponses.has(activeConversationId)) return;
     const question = questionInput.value.trim();
     if (!question) {
         updateComposerState();
         return;
     }
-    showStudentMessage(question);
+    const conversation = ensureActiveConversation();
     resetComposer();
     if (fileInput.files && fileInput.files.length) {
-        showToast("The selected file was not uploaded. The demo only processes your text question.");
+        showToast("Only the text of your question is sent. The selected file stays on this device.");
         fileInput.value = "";
         fileName.textContent = "";
     }
-    isGenerating = true;
-    updateComposerState();
-    loadingMessage = createLoadingMessage();
-    chatMessages.appendChild(loadingMessage);
-    scrollToLatest(true);
-
-    responseTimer = window.setTimeout(function() {
-        if (loadingMessage) loadingMessage.remove();
-        loadingMessage = null;
-        isGenerating = false;
-        showAIResponse(question);
-        updateComposerState();
-        questionInput.focus();
-    }, 450);
+    return requestAnswer(conversation, question);
 }
 
 function closeEmojiPicker() {
@@ -737,6 +712,81 @@ function copyText(text) {
     });
 }
 
+function originalQuestion(conversation, messageIndex) {
+    for (let index = messageIndex - 1; index >= 0; index -= 1) {
+        const item = conversation.messages[index];
+        if (item.role === "student" && item.message.trim()) return item.message;
+    }
+    return null;
+}
+
+function feedbackKey(conversationId, messageIndex) {
+    return `${conversationId}:${messageIndex}`;
+}
+
+async function findServerMessageId(conversation, messageIndex, record) {
+    if (Number.isSafeInteger(record.serverMessageId) && record.serverMessageId > 0) return record.serverMessageId;
+
+    // Older conversations saved the session token before they saved individual message IDs.
+    const question = originalQuestion(conversation, messageIndex);
+    if (!question) return null;
+    const response = await fetch(`/api/chat/sessions/${encodeURIComponent(conversation.sessionToken)}`);
+    if (response.status === 404) return null;
+    if (!response.ok) throw new Error("Could not load the server's chat history.");
+
+    const history = await response.json();
+    const usedIds = new Set(conversation.messages.map(item => item.serverMessageId));
+    const matches = history.messages.filter(item =>
+        item.question === question && item.answer === record.message && !usedIds.has(item.id)
+    );
+    return matches.length === 1 ? matches[0].id : null;
+}
+
+async function submitFeedback(conversation, messageIndex, record, feedback) {
+    const key = feedbackKey(conversation.id, messageIndex);
+    if (!conversation.sessionToken || record.feedbackSubmitted || pendingFeedback.has(key) ||
+        pendingResponses.get(conversation.id)?.messageIndex === messageIndex) return;
+
+    pendingFeedback.add(key);
+    refreshConversation(conversation);
+    try {
+        const messageId = await findServerMessageId(conversation, messageIndex, record);
+        if (!messageId) {
+            showToast("This response could not be matched to a server record. Try rating a new response.");
+            return;
+        }
+
+        const response = await fetch("/api/chat/feedback", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                session_token: conversation.sessionToken,
+                message_id: messageId,
+                rating: feedback === "helpful" ? 5 : 1
+            })
+        });
+        if (!response.ok) throw new Error("The feedback request returned HTTP " + response.status);
+
+        const conversations = readConversations();
+        const current = conversations.find(chat => chat.id === conversation.id);
+        const saved = current?.messages[messageIndex];
+        if (saved?.id === record.id && saved?.message === record.message && saved?.serverMessageId === record.serverMessageId) {
+            saved.serverMessageId = messageId;
+            saved.feedback = feedback;
+            saved.feedbackSubmitted = true;
+            writeConversations(conversations);
+        }
+        showToast("Feedback sent. Thank you.");
+    } catch (error) {
+        console.error("Could not submit feedback:", error);
+        showToast("Could not send feedback. Please try again.");
+    } finally {
+        pendingFeedback.delete(key);
+        const current = readConversations().find(chat => chat.id === conversation.id);
+        if (current) refreshConversation(current);
+    }
+}
+
 function handleResponseAction(button) {
     const conversationId = button.dataset.conversationId;
     const messageIndex = Number(button.dataset.messageIndex);
@@ -748,7 +798,6 @@ function handleResponseAction(button) {
         return;
     }
 
-    const card = button.closest(".ai-message");
     if (button.dataset.responseAction === "copy") {
         copyText(record.message).then(function() {
             showToast("Response copied to clipboard.");
@@ -760,71 +809,19 @@ function handleResponseAction(button) {
     }
 
     if (button.dataset.responseAction === "helpful" || button.dataset.responseAction === "not-helpful") {
-        const feedback = button.dataset.responseAction === "helpful" ? "helpful" : "not-helpful";
-        if (!updateMessage(conversationId, messageIndex, function(item) { item.feedback = feedback; })) return;
-        const response = card.querySelector(".ai-response-text");
-        response.classList.add(feedback === "helpful" ? "feedback-helpful" : "feedback-not-helpful");
-        card.querySelectorAll('[data-response-action="helpful"], [data-response-action="not-helpful"]').forEach(function(feedbackButton) {
-            feedbackButton.disabled = true;
-        });
-        card.querySelector(".feedback-message").textContent = "Thank you. Your feedback is saved in this browser.";
-        renderConversationList();
-        return;
+        return submitFeedback(conversation, messageIndex, record, button.dataset.responseAction);
     }
 
     if (button.dataset.responseAction === "regenerate") {
-        regenerateResponse(conversationId, messageIndex, card, button);
+        regenerateResponse(conversation, messageIndex);
     }
 }
 
-function regenerateResponse(conversationId, messageIndex, card, button) {
-    if (isGenerating) {
-        showToast("Please wait for the current response to finish.");
-        return;
-    }
-    const conversation = readConversations().find(function(chat) { return chat.id === conversationId; });
-    const messages = conversation && conversation.messages;
-    if (!messages || !messages[messageIndex]) return;
-    let question = "";
-    for (let index = messageIndex - 1; index >= 0; index -= 1) {
-        if (messages[index].role === "student") {
-            question = messages[index].message || "";
-            break;
-        }
-    }
-    isGenerating = true;
-    button.disabled = true;
-    updateComposerState();
-    const pending = createLoadingMessage();
-    card.insertAdjacentElement("afterend", pending);
-    scrollToLatest(false);
-    responseTimer = window.setTimeout(function() {
-        if (!updateMessage(conversationId, messageIndex, function(item) {
-            item.message = demoResponse;
-            item.time = getTime();
-            item.timestamp = Date.now();
-            delete item.feedback;
-        })) {
-            pending.remove();
-            isGenerating = false;
-            updateComposerState();
-            return;
-        }
-        const updatedConversation = readConversations().find(function(chat) { return chat.id === conversationId; });
-        const updatedRecord = updatedConversation.messages[messageIndex];
-        const replacement = createAIMessage(demoResponse, {
-            conversationId: conversationId,
-            messageIndex: messageIndex,
-            time: updatedRecord.time,
-            question: question
-        });
-        card.replaceWith(replacement);
-        pending.remove();
-        isGenerating = false;
-        updateComposerState();
-        renderConversationList();
-        scrollToLatest(false);
-    }, 450);
+function regenerateResponse(conversation, messageIndex) {
+    if (pendingFeedback.has(feedbackKey(conversation.id, messageIndex))) return;
+    const question = originalQuestion(conversation, messageIndex);
+    if (question) return requestAnswer(conversation, question, messageIndex);
+    showToast("The original question is unavailable in this browser.");
 }
 
 function logControlVisibility(label, element) {
@@ -890,7 +887,7 @@ emojiPicker.addEventListener("click", function(event) {
 });
 
 document.addEventListener("click", function(event) {
-    if (!emojiPicker.hidden && !emojiPicker.contains(event.target) && event.target !== emojiButton) {
+    if (!emojiPicker.hidden && !emojiPicker.contains(event.target) && !emojiButton.contains(event.target)) {
         closeEmojiPicker();
     }
 });
@@ -1051,9 +1048,8 @@ if ((shouldStartWithCollapsedSidebar || window.matchMedia("(max-width: 900px) an
 renderChatHistory();
 updateComposerState();
 
-const pendingQuestion = sessionStorage.getItem("uniliaPendingQuestion");
 if (pendingQuestion) {
-    sessionStorage.removeItem("uniliaPendingQuestion");
+    chatStorage.write("sessionStorage", pendingQuestionKey, null);
     questionInput.value = pendingQuestion;
     resizeComposer();
     updateComposerState();

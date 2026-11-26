@@ -1,6 +1,9 @@
-from pydantic import BaseModel
-from typing import Optional, List
+import json
+from ast import literal_eval
 from datetime import datetime
+from typing import List, Optional
+
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class QuestionRequest(BaseModel):
@@ -8,9 +11,18 @@ class QuestionRequest(BaseModel):
     question: str
     session_token: Optional[str] = None  # optional: continue an existing session
 
+    @field_validator("question")
+    @classmethod
+    def validate_question(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Question must not be blank.")
+        return value
+
 
 class MessageResponse(BaseModel):
     """Represents one question-and-answer pair."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     question: str
     answer: Optional[str] = None
@@ -18,8 +30,23 @@ class MessageResponse(BaseModel):
     source_documents: Optional[str] = None  # JSON string of document references
     created_at: datetime
 
-    class Config:
-        from_attributes = True  # allows reading from SQLAlchemy model objects
+    @field_validator("source_documents")
+    @classmethod
+    def normalize_legacy_sources(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        try:
+            json.loads(value)
+            return value
+        except json.JSONDecodeError:
+            pass
+
+        # Older messages stored Python's list representation in the database.
+        try:
+            sources = literal_eval(value)
+            return json.dumps(sources) if isinstance(sources, list) else value
+        except (ValueError, SyntaxError, TypeError):
+            return value
 
 
 class AskResponse(BaseModel):
@@ -30,9 +57,8 @@ class AskResponse(BaseModel):
 
 class SessionHistoryResponse(BaseModel):
     """All messages in a chat session — for reloading a conversation."""
+    model_config = ConfigDict(from_attributes=True)
+
     session_token: str
     started_at: datetime
     messages: List[MessageResponse]
-
-    class Config:
-        from_attributes = True

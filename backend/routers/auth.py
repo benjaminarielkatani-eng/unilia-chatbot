@@ -12,18 +12,28 @@ routers to protect admin-only endpoints (e.g. document upload/delete).
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
 from database.database import get_db
 from models.user import User
 from schemas.auth import TokenResponse, CurrentUser
-from services.auth_service import verify_password, create_access_token, decode_access_token
+from services.auth_service import (
+    verify_password,
+    create_access_token,
+    decode_access_token,
+    password_version,
+)
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
-# This tells FastAPI where the login endpoint is so it can read tokens
-# from the "Authorization: Bearer <token>" header on protected requests
+# OAuth2PasswordBearer — tells Swagger UI where the login endpoint is
+# so the Authorize button works correctly
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+
+# HTTPBearer — reads the raw Bearer token from Authorization header
+# Used internally by get_current_admin for token validation
+bearer_scheme = HTTPBearer(bearerFormat="JWT")
 
 
 # ---------------------------------------------------------------------------
@@ -35,7 +45,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 # ---------------------------------------------------------------------------
 
 def get_current_admin(
-    token: str = Depends(oauth2_scheme),
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     db: Session = Depends(get_db)
 ) -> User:
     """
@@ -47,8 +57,6 @@ def get_current_admin(
     - Shows a valid key card → let in
     - No card, expired card, or fake card → blocked
     """
-    # Standard error to return when authentication fails
-    # (We don't say exactly what failed for security reasons)
     credentials_error = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials. Please log in again.",
@@ -56,7 +64,7 @@ def get_current_admin(
     )
 
     # Decode and verify the token
-    payload = decode_access_token(token)
+    payload = decode_access_token(credentials.credentials)
     if payload is None:
         raise credentials_error
 
@@ -67,7 +75,10 @@ def get_current_admin(
 
     # Look up the user in the database
     user = db.query(User).filter(User.username == username).first()
-    if user is None:
+
+    # Also verify the password version matches — if admin changes password,
+    # all old tokens become invalid immediately (extra security)
+    if user is None or payload.get("password_version") != password_version(user.hashed_password):
         raise credentials_error
 
     # Check the account is not disabled
@@ -75,6 +86,13 @@ def get_current_admin(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Your account has been disabled. Contact the administrator."
+        )
+
+    # Only admins can access protected endpoints
+    if user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrator access is required."
         )
 
     return user
@@ -90,10 +108,8 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get
     Admin login endpoint.
 
     Accepts username and password as form fields (standard OAuth2 format).
+    The Swagger UI Authorize button uses this format automatically.
     Returns a JWT token to use for all future admin requests.
-
-    Example request (form data):
-        username=admin&password=unilia2024
 
     Example response:
         {"access_token": "eyJhbGciOiJIUzI1NiJ9...", "token_type": "bearer"}
@@ -102,6 +118,7 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get
     user = db.query(User).filter(User.username == form.username).first()
 
     # Step 2: Check username exists AND password is correct
+    # Same error for both — prevents attackers from knowing if username exists
     if not user or not verify_password(form.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -117,7 +134,12 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get
         )
 
     # Step 4: Create and return a JWT token
-    token = create_access_token(data={"sub": user.username, "role": user.role})
+    # "sub" = username, "role" = admin/staff, "password_version" = security check
+    token = create_access_token(data={
+        "sub": user.username,
+        "role": user.role,
+        "password_version": password_version(user.hashed_password),
+    })
     return TokenResponse(access_token=token, token_type="bearer")
 
 
@@ -130,10 +152,6 @@ def get_my_profile(current_user: User = Depends(get_current_admin)):
     """
     Returns the profile of the currently logged-in admin.
     Requires a valid JWT token in the Authorization header.
-
-    Example request:
-        GET /api/auth/me
-        Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
 
     Example response:
         {"id": 1, "username": "admin", "email": "admin@unilia.ac.mw",

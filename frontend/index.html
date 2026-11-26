@@ -91,6 +91,10 @@
                             Learn More
                         </a>
 
+                        <a href="#recent-questions" class="outline-btn" id="recentQuestionsLink">
+                            Recent Questions
+                        </a>
+
                     </div>
                 </div>
 
@@ -175,11 +179,11 @@
 
             </div>
 
+            <p id="topicStatus" role="status" hidden></p>
         </section>
 
-
         <!-- Recent Questions -->
-        <section class="recent-questions-section" id="recent-questions" hidden>
+        <section class="questions-section" id="recent-questions" hidden>
 
             <div class="section-heading">
 
@@ -192,41 +196,7 @@
             </div>
 
 
-            <div class="recent-question-list">
-
-                <div class="recent-question">
-
-                    <span class="recent-icon">💬</span>
-
-                    <p>
-                        How do I apply for admission at UNILIA?
-                    </p>
-
-                </div>
-
-
-                <div class="recent-question">
-
-                    <span class="recent-icon">💬</span>
-
-                    <p>
-                        What programmes are offered at the university?
-                    </p>
-
-                </div>
-
-
-                <div class="recent-question">
-
-                    <span class="recent-icon">💬</span>
-
-                    <p>
-                        How can I access my examination results?
-                    </p>
-
-                </div>
-
-            </div>
+            <div class="recent-questions-list"></div>
 
         </section>
 
@@ -264,8 +234,9 @@
 
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
     <script>
-        lucide.createIcons();
+        window.lucide?.createIcons();
     </script>
+    <script src="chat-storage.js"></script>
     <script src="script.js"></script>
 
 </body>

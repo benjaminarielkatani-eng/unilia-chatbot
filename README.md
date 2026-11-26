@@ -1,8 +1,9 @@
 # UNILIA AI Helpdesk Chatbot
 
 A group project for the University of Livingstonia (UNILIA).
-This system allows students to ask questions and get intelligent answers
-powered by an AI engine trained on university documents.
+Students can ask questions and get answers grounded in university documents.
+Administrators upload documents, review student feedback, view usage analytics,
+and manage administrator and staff accounts.
 
 ---
 
@@ -40,7 +41,7 @@ You will not break anyone else's work as long as you stay in your folder.
 Open a terminal (PowerShell or Command Prompt) and run:
 
 ```bash
-git clone https://github.com/benjaminarielkatani-eng/unilia-chatbot.git
+git clone --config core.longpaths=true https://github.com/benjaminarielkatani-eng/unilia-chatbot.git
 cd unilia-chatbot
 ```
 
@@ -80,33 +81,47 @@ cd backend
 
 You need Python 3.12 installed. Then:
 
-```bash
+```powershell
 # Create a virtual environment
 py -3.12 -m venv venv
 
-# Activate it (Windows PowerShell)
-venv\Scripts\activate
-
 # Install all required packages
-pip install -r requirements.txt
+.\venv\Scripts\python.exe -m pip install -r requirements.txt
 
-# Run the backend server
-uvicorn main:app --reload
+# Copy the optional local settings file (first setup only)
+Copy-Item -LiteralPath .env.example -Destination .env
+
+# Create an administrator account and choose its password (first setup only)
+.\venv\Scripts\python.exe create_admin.py
+
+# Run the application
+.\venv\Scripts\python.exe -m uvicorn main:app --reload
 ```
 
-The backend will be running at: `http://127.0.0.1:8000`  
-Test it by visiting: `http://127.0.0.1:8000/api/health`
+Open `http://127.0.0.1:8000` for student chat or
+`http://127.0.0.1:8000/admin.html` to sign in as `admin`. Upload a university
+document under **Documents**, then ask a question about its contents in student chat.
+The API health endpoint is `http://127.0.0.1:8000/api/health`.
 
-> ⚠️ **Important:** Copy `.env.example` to `.env` and fill in your values.
+> ⚠️ **Important:** Set `AI_ENGINE_URL` when using a separate AI engine. Set a
+> persistent `SECRET_KEY` if login tokens need to survive server restarts.
 > Never share or push your `.env` file — it contains secrets.
 
 #### 🟢 Frontend (Christopher)
 
-Set up instructions will be added by Christopher once the frontend framework is chosen.
+Run the application from `backend/` using the steps above. FastAPI serves the
+frontend and the API from the same address. Edit the HTML, CSS and JavaScript
+in `frontend/` and refresh the page to see the changes.
 
 #### 🟡 AI Engine (Macmillan & Bridjet)
 
-Set up instructions will be added by Macmillan once the AI engine is built.
+The built-in engine searches active uploaded TXT, DOCX, and text-based PDF
+documents. It returns relevant passages with citations and reports when it
+cannot find relevant information. Leave `AI_ENGINE_URL` blank to use this mode.
+
+To use a separate engine, set `AI_ENGINE_URL` in `backend/.env` to the base
+address of a service that implements the [AI engine contract](backend/docs/sprint5_rag_integration.md).
+The backend falls back to local document search if the external engine fails.
 
 ---
 
@@ -150,6 +165,13 @@ The backend exposes the following API endpoints:
 | DELETE | `/api/documents/{id}` | Remove a document |
 | POST | `/api/chat/ask` | Submit a student question |
 | GET | `/api/chat/sessions/{token}` | Get a chat session history |
+| POST | `/api/chat/feedback` | Rate an answer in the student's chat session |
+| GET | `/api/admin/analytics` | View database-backed usage and answer trends |
+| GET | `/api/admin/feedback` | List submitted student feedback |
+| PATCH | `/api/admin/feedback/{id}` | Review or reopen feedback |
+| GET | `/api/admin/users` | List administrator and staff accounts |
+| POST | `/api/admin/users` | Create an administrator or staff account |
+| PATCH | `/api/admin/users/{id}` | Update an account or reset its password |
 
 Full API documentation (auto-generated) is available at: `http://127.0.0.1:8000/docs`
 
@@ -163,9 +185,9 @@ Full API documentation (auto-generated) is available at: `http://127.0.0.1:8000/
 | Sprint 2 | Database design & initial endpoints | ✅ Complete |
 | Sprint 3 | Document management | ✅ Complete |
 | Sprint 4 | Student question & chat service | ✅ Complete |
-| Sprint 5 | AI engine integration | 🔄 In Progress |
-| Sprint 6 | Authentication & security | ⏳ Pending |
-| Sprint 7 | Analytics & feedback | ⏳ Pending |
+| Sprint 5 | AI engine integration | ✅ Complete |
+| Sprint 6 | Authentication & security | ✅ Complete |
+| Sprint 7 | Analytics & feedback | ✅ Complete |
 | Sprint 8 | Verification | ⏳ Pending |
 | Sprint 9 | Testing | ⏳ Pending |
 | Sprint 10 | Final documentation | ⏳ Pending |

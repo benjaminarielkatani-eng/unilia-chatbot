@@ -1,6 +1,7 @@
-from pydantic import BaseModel
-from typing import Optional
 from datetime import datetime
+from typing import Optional
+
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class DocumentBase(BaseModel):
@@ -19,9 +20,18 @@ class DocumentUpdate(BaseModel):
     category: Optional[str] = None
     description: Optional[str] = None
 
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, value: str | None) -> str:
+        if value is None or not value.strip():
+            raise ValueError("Document title must not be blank.")
+        return value
+
 
 class DocumentResponse(BaseModel):
     """Fields returned when reading a document from the database."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     title: str
     filename: str
@@ -31,6 +41,3 @@ class DocumentResponse(BaseModel):
     is_active: bool
     uploaded_by: Optional[int] = None
     created_at: datetime
-
-    class Config:
-        from_attributes = True  # allows Pydantic to read SQLAlchemy model objects

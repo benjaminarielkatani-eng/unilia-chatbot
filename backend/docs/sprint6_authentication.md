@@ -31,7 +31,7 @@ manage documents. Students continue to use the chatbot without any login.
 ## How Login Works
 
 ```
-1. Admin POSTs to /api/auth/login with {"username": "admin", "password": "unilia2024"}
+1. Admin POSTs to /api/auth/login with their username and password
 2. Backend verifies the password against the stored bcrypt hash
 3. If correct, backend returns a JWT token (valid for 8 hours)
 4. Admin includes token in all future requests:
@@ -70,14 +70,12 @@ manage documents. Students continue to use the chatbot without any login.
 
 ---
 
-## Default Admin Account
+## First Admin Account
 
-Created by `create_admin.py`:
+Run `create_admin.py` to create the account and enter a password at the terminal.
+
 - **Username:** admin
-- **Password:** unilia2024
 - **Email:** admin@unilia.ac.mw
-
-> ⚠️ Change this password before the system goes live!
 
 ---
 

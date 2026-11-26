@@ -117,12 +117,13 @@ if a document is removed by mistake.
 
 ## File Storage
 
-Uploaded files are saved in the `backend/uploads/` directory using a
-UUID-prefixed filename to prevent name conflicts.
+Uploaded files are saved in the `backend/uploads/` directory using a UUID
+and the validated file extension. The original filename is kept in the
+document metadata.
 
 **Example:** A file uploaded as `handbook.pdf` is stored as:
 ```
-uploads/a3f1c2d4-5678-90ab-cdef-1234567890ab_handbook.pdf
+uploads/a3f1c2d4-5678-90ab-cdef-1234567890ab.pdf
 ```
 
 The `uploads/` directory is excluded from Git (via `.gitignore`) because:

@@ -19,6 +19,8 @@ Handles two security jobs:
 
 import os
 from datetime import datetime, timedelta, timezone
+from hashlib import sha256
+from secrets import token_hex
 from typing import Optional
 
 from jose import JWTError, jwt
@@ -29,7 +31,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Read JWT settings from .env
-SECRET_KEY = os.getenv("SECRET_KEY", "fallback-secret-change-this")
+SECRET_KEY = os.getenv("SECRET_KEY") or token_hex(32)
 ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "480"))
 
@@ -55,7 +57,15 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
     Use this during login to check the submitted password.
     """
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except ValueError:
+        return False
+
+
+def password_version(hashed_password: str) -> str:
+    """Identify the password version in a signed token without exposing the hash."""
+    return sha256(hashed_password.encode("utf-8")).hexdigest()
 
 
 def create_access_token(data: dict) -> str:

@@ -8,7 +8,26 @@
     <link rel="stylesheet" href="admin.css">
 </head>
 <body>
-    <div class="admin-shell" id="adminShell">
+    <main class="admin-login" id="adminLogin">
+        <form class="panel login-panel" id="adminLoginForm" method="post">
+            <img class="login-logo" src="images/unilia-logo.png" alt="University of Livingstonia">
+            <h1>Admin sign in</h1>
+            <p>Sign in to manage the UNILIA helpdesk.</p>
+            <div class="admin-field">
+                <label for="adminUsername">Username</label>
+                <input id="adminUsername" name="username" autocomplete="username" required>
+            </div>
+            <div class="admin-field">
+                <label for="adminPassword">Password</label>
+                <input id="adminPassword" name="password" type="password" autocomplete="current-password" required>
+            </div>
+            <p class="form-error" id="adminLoginMessage" role="status" hidden></p>
+            <button class="button button-primary" id="signInButton" type="submit">Sign in</button>
+            <a class="login-back" href="index.html">Return to student site</a>
+        </form>
+    </main>
+
+    <div class="admin-shell" id="adminShell" hidden>
         <aside class="admin-sidebar" id="adminSidebar" aria-label="Administrator navigation">
             <a class="admin-brand" href="admin.html" aria-label="UNILIA AI administration">
                 <span class="brand-mark" aria-hidden="true"><img src="images/unilia-logo.png" alt=""></span>
@@ -38,10 +57,9 @@
             </nav>
 
             <div class="sidebar-bottom">
-                <div class="demo-note"><span class="demo-dot"></span><span>Frontend demo</span></div>
-                <a class="nav-item logout-link" href="index.html" title="Return to student site">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></svg><span>Exit Admin</span>
-                </a>
+                <button class="nav-item logout-link" id="adminSignOut" type="button" title="Sign out">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></svg><span>Sign out</span>
+                </button>
                 <button class="collapse-button" id="collapseSidebar" type="button" aria-label="Collapse sidebar" title="Collapse sidebar">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>Collapse menu</span>
                 </button>
@@ -68,13 +86,14 @@
                             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span class="notification-indicator"></span>
                         </button>
                         <section class="notification-popover" id="notificationPopover" hidden aria-label="Notifications">
-                            <div class="popover-heading"><strong>Notifications</strong><span class="sample-pill">Sample</span></div>
-                            <p class="notification-empty">You’re all caught up. New system notifications will appear here when connected to a backend.</p>
+                            <div class="popover-heading"><strong>Notifications</strong></div>
+                            <p class="notification-empty" id="notificationMessage"></p>
+                            <button class="row-action" id="notificationFeedback" type="button">Open feedback</button>
                         </section>
                     </div>
                     <div class="admin-profile">
-                        <span class="admin-avatar" aria-hidden="true">AD</span>
-                        <span class="profile-copy"><strong>Admin Demo</strong><small>Administrator</small></span>
+                        <span class="admin-avatar" id="adminInitials" aria-hidden="true">AD</span>
+                        <span class="profile-copy"><strong id="adminProfileName"></strong><small>Administrator</small></span>
                     </div>
                 </div>
             </header>

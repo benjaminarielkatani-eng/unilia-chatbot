@@ -1,53 +1,39 @@
-"""
-Create First Admin Account — Sprint 6
-======================================
-Run this script ONCE to create the initial admin account in the database.
+"""Create the first administrator account with a password entered at the terminal."""
 
-Usage:
-    cd c:\\Users\\Benjamin Katani\\unilia-chatbot\\backend
-    venv\\Scripts\\python.exe create_admin.py
+from getpass import getpass
 
-After running, you can log in at POST /api/auth/login with:
-    username: admin
-    password: unilia2024
+from sqlalchemy import select
 
-IMPORTANT: Change the password after first login!
-"""
-
-import sys
-import os
-
-# Make sure we can find the app modules
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-from database.database import SessionLocal, engine, Base
+from database.database import Base, SessionLocal, engine
 from models.user import User
 from services.auth_service import hash_password
 
-# Create tables if they don't exist yet
-Base.metadata.create_all(bind=engine)
 
-db = SessionLocal()
+def main() -> None:
+    Base.metadata.create_all(bind=engine)
 
-try:
-    # Check if admin already exists
-    existing = db.query(User).filter(User.username == "admin").first()
-    if existing:
-        print("Admin account already exists. No changes made.")
-    else:
-        admin = User(
-            username="admin",
+    with SessionLocal() as db:
+        username = "admin"
+        if db.scalar(select(User).where(User.username == username)) is not None:
+            print("Admin account already exists.")
+            return
+
+        password = getpass("Admin password: ")
+        if not password.strip() or len(password.encode("utf-8")) > 72:
+            raise SystemExit("Enter a nonblank password of at most 72 UTF-8 bytes.")
+        if password != getpass("Confirm admin password: "):
+            raise SystemExit("The passwords must match.")
+
+        db.add(User(
+            username=username,
             email="admin@unilia.ac.mw",
-            hashed_password=hash_password("unilia2024"),  # change this password!
+            hashed_password=hash_password(password),
             role="admin",
-            is_active=True
-        )
-        db.add(admin)
+            is_active=True,
+        ))
         db.commit()
-        print("Admin account created successfully!")
-        print("  Username: admin")
-        print("  Password: unilia2024")
-        print("")
-        print("IMPORTANT: Change this password after your first login!")
-finally:
-    db.close()
+        print(f"Admin account created. Sign in as {username}.")
+
+
+if __name__ == "__main__":
+    main()
