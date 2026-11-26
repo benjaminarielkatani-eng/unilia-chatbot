@@ -11,12 +11,12 @@ routers to protect admin-only endpoints (e.g. document upload/delete).
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from database.database import get_db
 from models.user import User
-from schemas.auth import LoginRequest, TokenResponse, CurrentUser
+from schemas.auth import TokenResponse, CurrentUser
 from services.auth_service import verify_password, create_access_token, decode_access_token
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
@@ -85,27 +85,24 @@ def get_current_admin(
 # ---------------------------------------------------------------------------
 
 @router.post("/login", response_model=TokenResponse, status_code=status.HTTP_200_OK)
-def login(request: LoginRequest, db: Session = Depends(get_db)):
+def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """
     Admin login endpoint.
 
-    The admin sends their username and password.
-    If correct, the backend returns a JWT token they use for all future requests.
+    Accepts username and password as form fields (standard OAuth2 format).
+    Returns a JWT token to use for all future admin requests.
 
-    Example request:
-        POST /api/auth/login
-        {"username": "admin", "password": "secret123"}
+    Example request (form data):
+        username=admin&password=unilia2024
 
     Example response:
         {"access_token": "eyJhbGciOiJIUzI1NiJ9...", "token_type": "bearer"}
     """
     # Step 1: Find the user by username
-    user = db.query(User).filter(User.username == request.username).first()
+    user = db.query(User).filter(User.username == form.username).first()
 
     # Step 2: Check username exists AND password is correct
-    # We use the same error message for both cases — this prevents attackers
-    # from knowing whether the username exists or not
-    if not user or not verify_password(request.password, user.hashed_password):
+    if not user or not verify_password(form.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password.",
@@ -120,9 +117,7 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
         )
 
     # Step 4: Create and return a JWT token
-    # "sub" (subject) is the standard JWT field for the user identifier
     token = create_access_token(data={"sub": user.username, "role": user.role})
-
     return TokenResponse(access_token=token, token_type="bearer")
 
 
