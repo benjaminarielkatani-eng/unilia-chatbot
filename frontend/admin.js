@@ -16,7 +16,8 @@ const viewTitles = {
     documents: "Document Management",
     feedback: "Feedback & Reviews",
     analytics: "Analytics & Reports",
-    settings: "System Settings"
+    settings: "System Settings",
+    profile: "My Profile"
 };
 
 const adminShell = document.getElementById("adminShell");
@@ -614,6 +615,29 @@ function renderSettings() {
         (settings.notifications ? " checked" : "") + '><span class="switch-track"></span></label></div></section>';
 }
 
+// Fix 3: Profile view — shows the signed-in admin's real details from the session
+function renderProfile() {
+    const profile = adminSession?.profile;
+    if (!profile) return pageHeading("My Profile", "Your account details.");
+    const initials = escapeHTML(profile.username.slice(0, 2).toUpperCase());
+    const role = profile.role === "admin" ? "Administrator" : "Staff";
+    const created = profile.created_at ? formatDate(profile.created_at) : "—";
+    return pageHeading("My Profile", "Your account details.") +
+        '<section class="panel" style="max-width:520px">' +
+        '<div style="display:flex;align-items:center;gap:16px;padding:8px 0 20px">' +
+        '<span class="admin-avatar" style="width:56px;height:56px;font-size:1.4rem;flex-shrink:0" aria-hidden="true">' + initials + '</span>' +
+        '<div><strong style="font-size:1.1rem">' + escapeHTML(profile.username) + '</strong>' +
+        '<p style="margin:2px 0 0;color:var(--text-muted)">' + escapeHTML(profile.email || "—") + '</p></div></div>' +
+        '<table style="width:100%;border-collapse:collapse">' +
+        '<tr><td style="padding:8px 0;color:var(--text-muted);width:40%">Role</td><td><span class="status-pill">' + escapeHTML(role) + '</span></td></tr>' +
+        '<tr><td style="padding:8px 0;color:var(--text-muted)">Account status</td><td><span class="status-pill' + (profile.is_active ? "" : " inactive") + '">' + (profile.is_active ? "Active" : "Inactive") + '</span></td></tr>' +
+        '<tr><td style="padding:8px 0;color:var(--text-muted)">Account created</td><td>' + escapeHTML(created) + '</td></tr>' +
+        '</table>' +
+        '<div style="margin-top:24px;border-top:1px solid #e8edf4;padding-top:16px">' +
+        '<button class="button button-danger" type="button" onclick="signOut()">Sign out</button></div>' +
+        '</section>';
+}
+
 function renderCurrentView() {
     if (!adminSession) return;
     const query = globalSearch.value.trim().toLowerCase();
@@ -623,7 +647,8 @@ function renderCurrentView() {
         documents: renderDocuments,
         feedback: renderFeedback,
         analytics: renderAnalytics,
-        settings: renderSettings
+        settings: renderSettings,
+        profile: renderProfile
     };
     currentSection.textContent = viewTitles[activeView];
     pageContent.innerHTML = renderers[activeView](query);
@@ -987,6 +1012,23 @@ document.addEventListener("keydown", function(event) {
     if (event.key === "Escape") {
         adminShell.classList.remove("mobile-nav-open");
         document.getElementById("mobileMenuButton").setAttribute("aria-expanded", "false");
+    }
+});
+
+// Fix 3: clicking the top-right profile badge navigates to the profile view
+document.addEventListener("click", function(event) {
+    const badge = event.target.closest("[data-view='profile']");
+    if (badge && adminSession) setView("profile");
+});
+
+// Fix 1: on admin login page, if token exists and is fresh, restoreAdminSession
+// already handles hiding the login form and showing the shell. The pageshow
+// event below re-checks in case the page was restored from bfcache.
+window.addEventListener("pageshow", function(event) {
+    if (event.persisted && adminSession) {
+        // Already signed in — ensure shell is visible (bfcache restore)
+        adminLogin.hidden = true;
+        adminShell.hidden = false;
     }
 });
 

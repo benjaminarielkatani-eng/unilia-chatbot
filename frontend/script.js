@@ -3,6 +3,28 @@
 const activeChatKey = "uniliaActiveChatId";
 const pendingQuestionKey = "uniliaPendingQuestion";
 
+// ── Fix 1: redirect logged-in admin away from landing page ──────────────────
+// If the admin token is still valid, skip the landing page and go straight to
+// the dashboard. We use replace() so the Back button doesn't loop back here.
+(function checkAdminSession() {
+    var token;
+    try { token = sessionStorage.getItem("uniliaAdminAccessToken"); } catch (e) {}
+    if (!token) return;
+    // Quick local check: token exists → redirect. The dashboard will verify it
+    // with /api/auth/me on load and sign out if it has expired.
+    window.location.replace("admin.html");
+})();
+
+// ── Fix 1: pageshow handles bfcache (browser back-forward cache) ─────────────
+window.addEventListener("pageshow", function (event) {
+    if (event.persisted) {
+        // Page was restored from bfcache — re-run the session check
+        var token;
+        try { token = sessionStorage.getItem("uniliaAdminAccessToken"); } catch (e) {}
+        if (token) window.location.replace("admin.html");
+    }
+});
+
 function startChat(question) {
     if (!chatStorage.write("sessionStorage", pendingQuestionKey, question)) {
         const status = document.getElementById("topicStatus");

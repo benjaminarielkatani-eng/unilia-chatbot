@@ -54,6 +54,9 @@
                 <button class="nav-item" type="button" data-view="settings" title="System Settings">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.6a8 8 0 0 1-1.5.9l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.5-.9l-1.7.6-1.4-2.4 1.4-1.1a7 7 0 0 1 0-1.8L6.9 12l1.4-2.4 1.7.6a8 8 0 0 1 1.5-.9l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.5.9l1.7-.6 1.4 2.4-1.4 1.1a7 7 0 0 1 0 1.9z"/></svg><span>System Settings</span>
                 </button>
+                <button class="nav-item" type="button" data-view="profile" title="My Profile">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></svg><span>My Profile</span>
+                </button>
             </nav>
 
             <div class="sidebar-bottom">
@@ -91,7 +94,7 @@
                             <button class="row-action" id="notificationFeedback" type="button">Open feedback</button>
                         </section>
                     </div>
-                    <div class="admin-profile">
+                    <div class="admin-profile" style="cursor:pointer" data-view="profile" title="My Profile" role="button" tabindex="0">
                         <span class="admin-avatar" id="adminInitials" aria-hidden="true">AD</span>
                         <span class="profile-copy"><strong id="adminProfileName"></strong><small>Administrator</small></span>
                     </div>
