@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from database.database import engine, Base
 
@@ -19,6 +20,26 @@ app = FastAPI(
     title="UNILIA AI Helpdesk API",
     description="Backend API for the University of Livingstonia AI Helpdesk Chatbot",
     version="1.0.0"
+)
+
+# ─────────────────────────────────────────────────────────────
+# CORS — Cross-Origin Resource Sharing (Sprint 8)
+# ─────────────────────────────────────────────────────────────
+# This allows Christopher's frontend (running on a different port
+# or domain) to make API calls to this backend.
+#
+# Think of it like an official visitor pass:
+# Without this, the browser blocks frontend → backend requests.
+#
+# In production, replace "*" with the actual frontend URL e.g.:
+#   "https://unilia-helpdesk.ac.mw"
+# ─────────────────────────────────────────────────────────────
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],          # allow ALL origins (fine for development)
+    allow_credentials=True,
+    allow_methods=["*"],          # allow GET, POST, PUT, DELETE, PATCH, etc.
+    allow_headers=["*"],          # allow Authorization header (needed for JWT)
 )
 
 # Register all routers — each handles a different area of the API
