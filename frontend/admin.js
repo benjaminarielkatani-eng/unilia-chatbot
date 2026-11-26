@@ -154,13 +154,14 @@ async function signIn(event) {
     signInButton.textContent = "Signing in…";
     setFormMessage(loginMessage, "");
     try {
+        // Send credentials as form-encoded data (required by OAuth2PasswordRequestForm on the backend)
+        const loginBody = new URLSearchParams();
+        loginBody.append("username", loginForm.elements.username.value.trim());
+        loginBody.append("password", loginForm.elements.password.value);
         const result = await requestAdmin("/api/auth/login", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                username: loginForm.elements.username.value.trim(),
-                password: loginForm.elements.password.value
-            })
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: loginBody.toString()
         });
         if (!result?.access_token) throw new Error("The server did not return a sign-in token.");
         await openAdminSession(result.access_token);
